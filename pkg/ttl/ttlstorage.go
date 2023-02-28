@@ -21,7 +21,6 @@ func (m *TTLMap) Init(d time.Duration) *TTLMap {
 		M:   make(map[string]TTLData),
 		TTL: d,
 	}
-	// <-time.After(d)
 	go m0.mapCleaner(d)
 	return m0
 }
@@ -40,15 +39,14 @@ func (m *TTLMap) mapCleaner(d time.Duration) {
 }
 
 func (m *TTLMap) Inc(key string) int {
-	m.mutex.RLock()
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	val, ok := m.M[key]
-	m.mutex.RUnlock()
 	switch ok {
 	case true:
 		if time.Now().After(val.Exp) {
-			m.mutex.Lock()
 			delete(m.M, key)
-			m.mutex.Unlock()
 		} else {
 			val.Val += 1
 		}
@@ -56,8 +54,6 @@ func (m *TTLMap) Inc(key string) int {
 		val.Val = 1
 		val.Exp = time.Now().Add(m.TTL)
 	}
-	m.mutex.Lock()
 	m.M[key] = val
-	m.mutex.Unlock()
 	return val.Val
 }
